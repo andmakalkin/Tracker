@@ -32,7 +32,7 @@ final class AddingScheduleViewController: UIViewController {
     }
     
     // MARK: - State
-    private var schedule = Schedule(selectedDays: [])
+    private var schedule: Set<Weekday> = []
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -191,9 +191,9 @@ extension AddingScheduleViewController: TableViewControllerDelegateProtocol {
         
         switch newValue {
         case true:
-            schedule.selectedDays.insert(weekday)
+            schedule.insert(weekday)
         case false:
-            schedule.selectedDays.remove(weekday)
+            schedule.remove(weekday)
         }
     }
 }

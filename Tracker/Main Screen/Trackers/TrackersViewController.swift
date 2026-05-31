@@ -9,15 +9,13 @@ final class TrackersViewController: UIViewController {
     }
     
     // MARK: - Dependencies
-    private let storage = Storage.shared
+    private let storage: StorageProtocol
+    private var dataProvider: TrackersDataProviderProtocol
+    private let filteringService: TrackersFilteringService
     
     // MARK: - Child View Controllers
     private let searchTextFieldViewController = SearchTextFieldViewController()
     private let collectionViewController = CollectionViewController()
-    
-    // MARK: - Observers
-    private var storageCategoriesObserver: NSObjectProtocol?
-    private var storageCompletedTrackersObserver: NSObjectProtocol?
     
     // MARK: - UI Elements
     private lazy var addingTrackerButton = UIButton(type: .custom)
@@ -32,15 +30,14 @@ final class TrackersViewController: UIViewController {
     private lazy var stubImageView = UIImageView()
     
     // MARK: - Data
-    private var categories: [TrackerCategory] {
+    private var categories = [TrackerCategory]() {
         didSet {
             updateCategoriesToShow()
         }
     }
     
-    private var completedTrackers: [TrackerRecord] {
+    private var completedTrackers = [TrackerRecord]() {
         didSet {
-            updateCompletedTrackersInfo()
             updateCategoriesToShow()
         }
     }
@@ -52,29 +49,29 @@ final class TrackersViewController: UIViewController {
         }
     }
     
-    private var completedTrackerIdsOnSelectedDate = Set<UUID>()
-    private var completedDaysCountByTrackerId = [UUID: Int]()
+    private var completedTrackerIDsOnSelectedDate = Set<UUID>()
+    private var completedDaysCountByTrackerID = [UUID: Int]()
     
     // MARK: - State
     private var inputText: String = ""
     
     private var selectedDate: Date = Calendar.current.startOfDay(for: Date()) {
         didSet {
-            updateCompletedTrackersInfo()
             updateCategoriesToShow()
         }
     }
-    
-    private var selectedWeekday: Weekday {
-        convertDateToWeekday(selectedDate)
-    }
-    
+
     private var renderMode: RenderMode?
     
     // MARK: - Initialization
-    init() {
-        self.categories = storage.categories
-        self.completedTrackers = storage.completedTrackers
+    init(
+        storage: StorageProtocol,
+        dataProvider: TrackersDataProviderProtocol,
+        filteringService: TrackersFilteringService = TrackersFilteringService()
+    ) {
+        self.storage = storage
+        self.dataProvider = dataProvider
+        self.filteringService = filteringService
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -83,28 +80,17 @@ final class TrackersViewController: UIViewController {
     required init?(coder: NSCoder) {
         nil
     }
-    
-    deinit {
-        if let storageCategoriesObserver {
-            NotificationCenter.default.removeObserver(storageCategoriesObserver)
-        }
-        
-        if let storageCompletedTrackersObserver {
-            NotificationCenter.default.removeObserver(storageCompletedTrackersObserver)
-        }
-    }
-    
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
         searchTextFieldViewController.delegate = self
         collectionViewController.delegate = self
-        
-        addObservers()
+        dataProvider.delegate = self
+
         setupView()
-        updateCompletedTrackersInfo()
-        updateCategoriesToShow()
+        loadDataFromProvider()
     }
     
     // MARK: - UI Setup
@@ -229,7 +215,7 @@ final class TrackersViewController: UIViewController {
             ),
             searchTextField.heightAnchor.constraint(
                 equalToConstant: 36
-            )
+            ),
         ])
         
         searchTextFieldViewController.didMove(toParent: self)
@@ -383,7 +369,7 @@ final class TrackersViewController: UIViewController {
     }
     
     @objc private func filtersButtonDidTap() {
-        
+        // TODO: filtersButtonDidTap()
     }
     
     // MARK: - Navigation
@@ -433,91 +419,26 @@ final class TrackersViewController: UIViewController {
     }
     
     // MARK: - Data Updates
-    private func updateCategoriesToShow() {
-        var newCategoriesToShow = [TrackerCategory]()
-        
-        categories.forEach { category in
-            let filteredTrackers = category.trackers.filter { tracker in
-                guard let schedule = tracker.schedule else {
-                    // Нерегулярное событие
-                    return isTrackerCompletedOnSelectedDate(tracker) ||
-                    numberOfCompletedDays(for: tracker) == 0
-                }
-                // Регулярное событие
-                return schedule.selectedDays.contains(selectedWeekday)
-            }
-            
-            if !filteredTrackers.isEmpty {
-                newCategoriesToShow.append(
-                    TrackerCategory(
-                        title: category.title,
-                        trackers: filteredTrackers
-                    )
-                )
-            }
-        }
-        
-        self.categoriesToShow = newCategoriesToShow
+    private func loadDataFromProvider() {
+        self.categories = dataProvider.categories
+        self.completedTrackers = dataProvider.completedTrackers
     }
     
-    private func updateCompletedTrackersInfo() {
-        completedTrackerIdsOnSelectedDate = Set(
-            completedTrackers
-                .filter { $0.date == selectedDate }
-                .map { $0.id }
+    private func updateCategoriesToShow() {
+        completedTrackerIDsOnSelectedDate = filteringService.makeCompletedTrackerIDs(
+            from: completedTrackers,
+            selectedDate: selectedDate
         )
         
-        completedDaysCountByTrackerId = Dictionary(
-            grouping: completedTrackers,
-            by: { $0.id }
-        ).mapValues { $0.count }
-    }
-    
-    // MARK: - Observer Setup
-    private func addObservers() {
-        storageCategoriesObserver = NotificationCenter.default
-            .addObserver(
-                forName: Storage.categoriesDidChangeNotification,
-                object: nil,
-                queue: .main
-            ){ [weak self] _ in
-                guard let self else { return }
-                self.categories = storage.categories
-            }
+        completedDaysCountByTrackerID = filteringService.makeCompletedDaysCountByTrackerID(
+            from: completedTrackers
+        )
         
-        storageCompletedTrackersObserver = NotificationCenter.default
-            .addObserver(
-                forName: Storage.completedTrackersDidChangeNotification,
-                object: nil,
-                queue: .main
-            ){ [weak self] _ in
-                guard let self else { return }
-                self.completedTrackers = storage.completedTrackers
-            }
-    }
-    
-    // MARK: - Helpers
-    private func convertDateToWeekday(_ date: Date) -> Weekday {
-        let weekdayNumber = Calendar.current.component(.weekday, from: date)
-        
-        switch weekdayNumber {
-        case 1:
-            return .sunday
-        case 2:
-            return .monday
-        case 3:
-            return .tuesday
-        case 4:
-            return .wednesday
-        case 5:
-            return .thursday
-        case 6:
-            return .friday
-        case 7:
-            return .saturday
-        default:
-            return .monday
-        }
+        categoriesToShow = filteringService.makeCategoriesToShow(
+            from: categories,
+            completedTrackers: completedTrackers,
+            selectedDate: selectedDate
+        )
     }
 }
 
@@ -525,11 +446,11 @@ final class TrackersViewController: UIViewController {
 extension TrackersViewController: CollectionViewControllerDelegateProtocol {
     
     func isTrackerCompletedOnSelectedDate(_ tracker: Tracker) -> Bool {
-        completedTrackerIdsOnSelectedDate.contains(tracker.id)
+        completedTrackerIDsOnSelectedDate.contains(tracker.id)
     }
     
     func numberOfCompletedDays(for tracker: Tracker) -> Int {
-        completedDaysCountByTrackerId[tracker.id] ?? 0
+        completedDaysCountByTrackerID[tracker.id] ?? 0
     }
     
     func completeButtonDidTap(tracker: Tracker) {
@@ -539,15 +460,19 @@ extension TrackersViewController: CollectionViewControllerDelegateProtocol {
         }
         
         let trackerRecord = TrackerRecord(
-            id: tracker.id,
+            trackerID: tracker.id,
             date: selectedDate
         )
         
-        switch isTrackerCompletedOnSelectedDate(tracker) {
-        case true:
-            storage.removeCompletedTracker(trackerRecord)
-        case false:
-            storage.addCompletedTracker(trackerRecord)
+        do {
+            switch isTrackerCompletedOnSelectedDate(tracker) {
+            case true:
+                try storage.deleteTrackerRecord(trackerRecord)
+            case false:
+                try storage.addTrackerRecord(trackerRecord)
+            }
+        } catch {
+            print("❌ [TrackersViewController] completeButtonDidTap: \(error)")
         }
     }
 }
@@ -556,6 +481,18 @@ extension TrackersViewController: CollectionViewControllerDelegateProtocol {
 extension TrackersViewController: SearchTextFieldViewControllerDelegateProtocol {
     
     func didFinishInputEditing(_ text: String) {
-        self.inputText = text
+        inputText = text
+    }
+}
+
+// MARK: - TrackersDataProviderDelegateProtocol
+extension TrackersViewController: TrackersDataProviderDelegateProtocol {
+    
+    func categoriesDidUpdate() {
+        categories = dataProvider.categories
+    }
+    
+    func completedTrackersDidUpdate() {
+        completedTrackers = dataProvider.completedTrackers
     }
 }
