@@ -1,18 +1,18 @@
 import UIKit
 
-struct Tracker: Equatable  {
+struct Tracker: Equatable {
     let id: UUID
     let title: String
     let color: UIColor
     let emoji: String
-    let schedule: Schedule?
+    let schedule: Set<Weekday>
     
     init(
         id: UUID = UUID(),
         title: String,
         color: UIColor,
         emoji: String,
-        schedule: Schedule?
+        schedule: Set<Weekday>
     ) {
         self.id = id
         self.title = title

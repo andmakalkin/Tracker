@@ -9,7 +9,7 @@ final class AddingTrackerViewController: UIViewController {
     }
     
     // MARK: - Dependencies
-    private let storage = Storage.shared
+    private let storage: StorageProtocol
     
     // MARK: - Navigation View Controllers
     private let addingScheduleViewController = AddingScheduleViewController()
@@ -24,11 +24,25 @@ final class AddingTrackerViewController: UIViewController {
         titlesAndDescriptions: tableTitlesAndValues
     )
     
+    private lazy var emojiViewController = EmojiAndColorCollectionViewController(
+        emojis: TrackerEmoji.emojis
+    )
+    
+    private lazy var colorViewController = EmojiAndColorCollectionViewController(
+        colors: TrackerColor.colors
+    )
+    
     // MARK: - UI Elements
     private lazy var titleLabel = UILabel()
     
     private lazy var scrollView = UIScrollView()
     private lazy var contentStackView = UIStackView()
+    
+    private lazy var emojiLabelContainerView = UIView()
+    private lazy var emojiLabel = UILabel()
+    
+    private lazy var colorLabelContainerView = UIView()
+    private lazy var colorLabel = UILabel()
     
     private lazy var bottomButtonsStackView = UIStackView()
     private lazy var saveButton = UIButton(type: .custom)
@@ -42,12 +56,12 @@ final class AddingTrackerViewController: UIViewController {
         case .regular:
             return [
                 ("Категория", inputCategoryName),
-                ("Расписание", scheduleLabelText)
+                ("Расписание", scheduleLabelText),
             ]
             
         case .irregular:
             return [
-                ("Категория", inputCategoryName)
+                ("Категория", inputCategoryName),
             ]
         }
     }
@@ -83,28 +97,29 @@ final class AddingTrackerViewController: UIViewController {
         }
     }
     
-    private var inputSchedule: Schedule? {
+    private var inputSchedule: Set<Weekday> = [] {
         didSet {
             tableViewController.titlesAndDescriptions = tableTitlesAndValues
             isTrackerReadyForSaving = checkTrackerIsReadyForSaving()
         }
     }
     
-    private var inputColor: UIColor? = TrackerColor.randomColor() {
+    private var inputColor: UIColor? {
         didSet {
             isTrackerReadyForSaving = checkTrackerIsReadyForSaving()
         }
     }
     
-    private var inputEmoji: String = TrackerEmoji.randomEmoji() {
+    private var inputEmoji: String = "" {
         didSet {
             isTrackerReadyForSaving = checkTrackerIsReadyForSaving()
         }
     }
     
     // MARK: - Initialization
-    init(trackerType: TrackerType) {
+    init(trackerType: TrackerType, storage: StorageProtocol = Storage()) {
         self.trackerType = trackerType
+        self.storage = storage
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -121,6 +136,8 @@ final class AddingTrackerViewController: UIViewController {
         tableViewController.delegate = self
         addingScheduleViewController.delegate = self
         titleInputViewController.delegate = self
+        emojiViewController.delegate = self
+        colorViewController.delegate = self
         
         setupView()
         setupTapGesture()
@@ -131,25 +148,24 @@ final class AddingTrackerViewController: UIViewController {
         view.backgroundColor = .ypWhite
         
         setupTitleLabel()
-        setupBottomButtons()
         
-        setupScrollView()
-        addChilds()
-    }
-    
-    private func setupBottomButtons() {
         setupBottomButtonsStackView()
         setupCancelButton()
         setupSaveButton()
-    }
-    
-    private func addChilds() {
-        addChildController(titleInputViewController)
-        contentStackView.setCustomSpacing(
-            24,
-            after: titleInputViewController.view
-        )
-        addChildController(tableViewController)
+        
+        setupScrollView()
+        setupContentStackView()
+        
+        setupTitleInputViewController()
+        setupTableViewController()
+        
+        setupEmojiLabelContainerView()
+        setupEmojiLabel()
+        setupEmojiViewController()
+        
+        setupColorLabelContainerView()
+        setupColorLabel()
+        setupColorViewController()
     }
     
     private func setupTitleLabel() {
@@ -175,14 +191,8 @@ final class AddingTrackerViewController: UIViewController {
         scrollView.backgroundColor = .ypWhite
         scrollView.showsVerticalScrollIndicator = false
         
-        contentStackView.axis = .vertical
-        contentStackView.spacing = 0
-        
         view.addSubview(scrollView)
-        scrollView.addSubview(contentStackView)
-        
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        contentStackView.translatesAutoresizingMaskIntoConstraints = false
         
         scrollView.contentInset = UIEdgeInsets(
             top: 24,
@@ -206,6 +216,17 @@ final class AddingTrackerViewController: UIViewController {
                 equalTo: bottomButtonsStackView.topAnchor,
                 constant: -16
             ),
+        ])
+    }
+    
+    private func setupContentStackView() {
+        contentStackView.axis = .vertical
+        contentStackView.spacing = 0
+        
+        scrollView.addSubview(contentStackView)
+        contentStackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
             contentStackView.topAnchor.constraint(
                 equalTo: scrollView.contentLayoutGuide.topAnchor
             ),
@@ -213,6 +234,7 @@ final class AddingTrackerViewController: UIViewController {
                 equalTo: scrollView.frameLayoutGuide.leadingAnchor,
                 constant: 16
             ),
+            
             contentStackView.trailingAnchor.constraint(
                 equalTo: scrollView.frameLayoutGuide.trailingAnchor,
                 constant: -16
@@ -291,6 +313,90 @@ final class AddingTrackerViewController: UIViewController {
         saveButton.translatesAutoresizingMaskIntoConstraints = false
     }
     
+    private func setupTitleInputViewController() {
+        addToStackViewChildController(titleInputViewController)
+    }
+    
+    private func setupTableViewController() {
+        contentStackView.setCustomSpacing(
+            24,
+            after: titleInputViewController.view
+        )
+        addToStackViewChildController(tableViewController)
+    }
+    
+    private func setupEmojiLabelContainerView() {
+        contentStackView.setCustomSpacing(
+            32,
+            after: tableViewController.view
+        )
+        
+        contentStackView.addArrangedSubview(emojiLabelContainerView)
+        emojiLabelContainerView.translatesAutoresizingMaskIntoConstraints = false
+    }
+    
+    private func setupEmojiLabel() {
+        emojiLabel.text = "Emoji"
+        emojiLabel.textColor = .ypBlack
+        emojiLabel.font = UIFont.systemFont(ofSize: 19, weight: .bold)
+        
+        emojiLabelContainerView.addSubview(emojiLabel)
+        emojiLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            emojiLabel.topAnchor.constraint(
+                equalTo: emojiLabelContainerView.topAnchor
+            ),
+            emojiLabel.leadingAnchor.constraint(
+                equalTo: emojiLabelContainerView.leadingAnchor,
+                constant: 12
+            ),
+            emojiLabel.bottomAnchor.constraint(
+                equalTo: emojiLabelContainerView.bottomAnchor
+            ),
+        ])
+    }
+    
+    private func setupEmojiViewController() {
+        addToStackViewChildController(emojiViewController)
+    }
+    
+    private func setupColorLabelContainerView() {
+        contentStackView.setCustomSpacing(
+            16,
+            after: emojiViewController.view
+        )
+        
+        contentStackView.addArrangedSubview(colorLabelContainerView)
+        colorLabelContainerView.translatesAutoresizingMaskIntoConstraints = false
+    }
+    
+    private func setupColorLabel() {
+        colorLabel.text = "Цвет"
+        colorLabel.textColor = .ypBlack
+        colorLabel.font = UIFont.systemFont(ofSize: 19, weight: .bold)
+        
+        colorLabelContainerView.addSubview(colorLabel)
+        colorLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            colorLabel.topAnchor.constraint(
+                equalTo: colorLabelContainerView.topAnchor
+            ),
+            colorLabel.leadingAnchor.constraint(
+                equalTo: colorLabelContainerView.leadingAnchor,
+                constant: 12
+            ),
+            colorLabel.bottomAnchor.constraint(
+                equalTo: colorLabelContainerView.bottomAnchor
+            ),
+        ])
+    }
+    
+    private func setupColorViewController() {
+        addToStackViewChildController(colorViewController)
+    }
+    
     private func setupTapGesture() {
         let tapGesture = UITapGestureRecognizer(
             target: self,
@@ -301,7 +407,7 @@ final class AddingTrackerViewController: UIViewController {
         view.addGestureRecognizer(tapGesture)
     }
     
-    private func addChildController(_ child: UIViewController) {
+    private func addToStackViewChildController(_ child: UIViewController) {
         addChild(child)
         contentStackView.addArrangedSubview(child.view)
         
@@ -315,8 +421,12 @@ final class AddingTrackerViewController: UIViewController {
     }
     
     @objc private func saveButtonDidTap() {
-        saveTracker()
-        closeScreen()
+        do {
+            try saveTracker()
+            closeScreen()
+        } catch {
+            print("❌ [AddingTrackerViewController] saveButtonDidTap: \(error)")
+        }
     }
     
     @objc private func hideKeyboard() {
@@ -359,13 +469,8 @@ final class AddingTrackerViewController: UIViewController {
     
     // MARK: - Data Updates
     private func checkTrackerIsReadyForSaving() -> Bool {
-        if trackerType == .regular {
-            guard
-                let inputSchedule,
-                !inputSchedule.selectedDays.isEmpty
-            else {
-                return false
-            }
+        guard trackerType == .irregular || (trackerType == .regular && !inputSchedule.isEmpty) else {
+            return false
         }
         
         return !inputText.isEmpty
@@ -374,7 +479,7 @@ final class AddingTrackerViewController: UIViewController {
         && !inputCategoryName.isEmpty
     }
     
-    private func saveTracker() {
+    private func saveTracker() throws {
         guard let inputColor else { return }
         
         let tracker = Tracker(
@@ -384,19 +489,19 @@ final class AddingTrackerViewController: UIViewController {
             schedule: inputSchedule
         )
         
-        storage.addTracker(tracker, categoryTitle: inputCategoryName)
+        try storage.addTracker(
+            tracker,
+            toCategoryWithTitle: inputCategoryName
+        )
     }
     
     // MARK: - Helpers
-    private func convertScheduleToString(_ schedule: Schedule?) -> String? {
-        guard
-            let schedule,
-            !schedule.selectedDays.isEmpty
-        else {
+    private func convertScheduleToString(_ schedule: Set<Weekday>) -> String? {
+        if trackerType == .irregular || (trackerType == .regular && schedule.isEmpty) {
             return nil
         }
         
-        if schedule.selectedDays.count == 7 {
+        if schedule.count == 7 {
             return "Каждый день"
         }
         
@@ -404,7 +509,7 @@ final class AddingTrackerViewController: UIViewController {
         var sortedScheduleString = [String]()
         
         week.forEach {
-            if schedule.selectedDays.contains($0) {
+            if schedule.contains($0) {
                 sortedScheduleString.append($0.rawValue)
             }
         }
@@ -434,8 +539,8 @@ extension AddingTrackerViewController: TableViewControllerDelegateProtocol {
 // MARK: - AddingScheduleViewControllerDelegateProtocol
 extension AddingTrackerViewController: AddingScheduleViewControllerDelegateProtocol {
     
-    func didFinishSelectingSchedule(_ schedule: Schedule) {
-        self.inputSchedule = schedule
+    func didFinishSelectingSchedule(_ schedule: Set<Weekday>) {
+        inputSchedule = schedule
     }
 }
 
@@ -443,6 +548,17 @@ extension AddingTrackerViewController: AddingScheduleViewControllerDelegateProto
 extension AddingTrackerViewController: TextFieldViewControllerDelegateProtocol {
     
     func didFinishInputEditing(_ text: String) {
-        self.inputText = text
+        inputText = text
+    }
+}
+
+// MARK: - EmojiAndColorCollectionViewControllerDelegateProtocol
+extension AddingTrackerViewController: EmojiAndColorCollectionViewControllerDelegateProtocol {
+    func didSelectEmoji(_ emoji: String) {
+        inputEmoji = emoji
+    }
+    
+    func didSelectColor(_ color: UIColor) {
+        inputColor = color
     }
 }

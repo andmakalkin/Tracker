@@ -99,7 +99,7 @@ final class CollectionViewCell: UICollectionViewCell {
     
     private func setupEmojiLabel() {
         emojiLabel.backgroundColor = UIColor(white: 1.0, alpha: 0.3)
-        // В макете emoji имеет размер 16, но визуально ему соответствует размер 13
+        // В макете emoji имеет размер 16, но визуально ему соответствует размер 13.
         emojiLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
         emojiLabel.textAlignment = .center
         
