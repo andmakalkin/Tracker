@@ -12,9 +12,12 @@ final class CoreDataStack {
         persistentContainer.viewContext
     }
     
+    // MARK: - Constants
+    private let persistentContainerName = "DataModel"
+    
     // MARK: - Initialization
     private init() {
-        persistentContainer = NSPersistentContainer(name: "DataModel")
+        persistentContainer = NSPersistentContainer(name: persistentContainerName)
         
         persistentContainer.loadPersistentStores { _, error in
             if let error = error as NSError? {

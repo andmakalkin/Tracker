@@ -1,4 +1,3 @@
-import CoreData
 import UIKit
 
 @main

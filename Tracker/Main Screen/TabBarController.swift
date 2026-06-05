@@ -60,7 +60,18 @@ final class TabBarController: UITabBarController {
         do {
             return try TrackersDataProvider()
         } catch {
-            fatalError("❌ [TabBarController] makeDataProvider: не удалось создать TrackersDataProvider: \(error)")
+            assertionFailure("❌ [TabBarController] makeDataProvider: не удалось создать TrackersDataProvider: \(error)")
+            return EmptyDataProvider()
         }
+    }
+}
+
+// MARK: - Empty DataProvider
+private extension TabBarController {
+    
+    final class EmptyDataProvider: TrackersDataProviderProtocol {
+        var delegate: TrackersDataProviderDelegateProtocol? = nil
+        var categories = [TrackerCategory]()
+        var completedTrackers = [TrackerRecord]()
     }
 }
