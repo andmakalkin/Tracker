@@ -3,7 +3,11 @@ import UIKit
 final class TabBarController: UITabBarController {
     
     // MARK: - Child View Controllers
-    private let trackersViewController = TrackersViewController()
+    private let trackersViewController = TrackersViewController(
+        storage: Storage(),
+        dataProvider: TabBarController.makeDataProvider()
+    )
+    
     private let statisticsViewController = StatisticsViewController()
     
     // MARK: - Lifecycle
@@ -13,7 +17,7 @@ final class TabBarController: UITabBarController {
         setupTabBar()
         setupTabBarItems()
         
-        self.viewControllers = [trackersViewController, statisticsViewController]
+        viewControllers = [trackersViewController, statisticsViewController]
     }
     
     // MARK: - UI Setup
@@ -49,5 +53,25 @@ final class TabBarController: UITabBarController {
             image: UIImage(resource: .tabBarStatisticsActive),
             selectedImage: nil
         )
+    }
+    
+    // MARK: - Helpers
+    private static func makeDataProvider() -> TrackersDataProviderProtocol {
+        do {
+            return try TrackersDataProvider()
+        } catch {
+            assertionFailure("❌ [TabBarController] makeDataProvider: не удалось создать TrackersDataProvider: \(error)")
+            return EmptyDataProvider()
+        }
+    }
+}
+
+// MARK: - Empty DataProvider
+private extension TabBarController {
+    
+    final class EmptyDataProvider: TrackersDataProviderProtocol {
+        var delegate: TrackersDataProviderDelegateProtocol? = nil
+        var categories = [TrackerCategory]()
+        var completedTrackers = [TrackerRecord]()
     }
 }

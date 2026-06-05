@@ -13,7 +13,7 @@ final class TextFieldViewController: UIViewController {
     private lazy var warningLabelContainerView = UIView()
     private lazy var warningLabel = UILabel()
     
-    // MARK: - Data
+    // MARK: - Configuration
     private let maxCharacters = 38
     private let placeholderText: String
     

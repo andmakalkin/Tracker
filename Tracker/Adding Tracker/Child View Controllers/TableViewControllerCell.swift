@@ -1,6 +1,7 @@
 import UIKit
 
 final class TableViewControllerCell: UITableViewCell {
+    
     // MARK: - Types
     enum Accessory {
         case navigation
