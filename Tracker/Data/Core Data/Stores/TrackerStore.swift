@@ -1,37 +1,22 @@
-import UIKit
 import CoreData
+import Foundation
 
 final class TrackerStore {
     
-    // MARK: - Types
-    private enum TrackerStoreError: Error {
-        case categoryNotFound
-    }
-    
     // MARK: - Dependencies
     private let context: NSManagedObjectContext
+    private let entityProvider: CoreDataEntityProvider
+    private let mapper: CoreDataMapper
     
     // MARK: - Initialization
-    init(context: NSManagedObjectContext) {
+    init(
+        context: NSManagedObjectContext,
+        entityProvider: CoreDataEntityProvider? = nil,
+        mapper: CoreDataMapper = CoreDataMapper()
+    ) {
         self.context = context
-    }
-    
-    // MARK: - Helpers
-    private func fetchCategory(with categoryID: UUID) throws -> TrackerCategoryCoreData {
-        let request = TrackerCategoryCoreData.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "%K == %@",
-            #keyPath(TrackerCategoryCoreData.categoryID),
-            categoryID as CVarArg
-        )
-        
-        request.fetchLimit = 1
-        
-        guard let category = try context.fetch(request).first else {
-            throw TrackerStoreError.categoryNotFound
-        }
-        
-        return category
+        self.entityProvider = entityProvider ?? CoreDataEntityProvider(context: context)
+        self.mapper = mapper
     }
 }
 
@@ -39,21 +24,53 @@ final class TrackerStore {
 extension TrackerStore: TrackerStoreProtocol {
     
     func addTracker(_ tracker: Tracker, to category: TrackerCategory) throws {
-        let trackerCategory = try fetchCategory(with: category.categoryID)
+        let categoryEntity = try entityProvider.fetchCategory(
+            with: category.categoryID
+        )
         
         let trackerEntity = TrackerCoreData(context: context)
         trackerEntity.trackerID = tracker.id
         trackerEntity.title = tracker.title
-        trackerEntity.emoji = tracker.emoji
         trackerEntity.color = tracker.color
-        trackerEntity.schedule = tracker.schedule as NSObject
-        trackerEntity.category = trackerCategory
+        trackerEntity.emoji = tracker.emoji
+        trackerEntity.schedule = tracker.schedule as NSSet
+        trackerEntity.category = categoryEntity
         
         try context.saveContextIfNeeded()
         print("\n✅ [TrackerStore] addTracker: добавлен новый трекер:\n\(tracker.title)")
     }
     
+    func updateTracker(_ tracker: Tracker, in category: TrackerCategory) throws {
+        let trackerEntity = try entityProvider.fetchTracker(with: tracker.id)
+        let categoryEntity = try entityProvider.fetchCategory(
+            with: category.categoryID
+        )
+        
+        trackerEntity.title = tracker.title
+        trackerEntity.color = tracker.color
+        trackerEntity.emoji = tracker.emoji
+        trackerEntity.schedule = tracker.schedule as NSSet
+        trackerEntity.category = categoryEntity
+        
+        try context.saveContextIfNeeded()
+        print("\n✅ [TrackerStore] updateTracker: обновлён трекер:\n\(tracker.title)")
+    }
+    
     func deleteTracker(_ tracker: Tracker) throws {
-        // TODO: deleteTracker
+        let trackerEntity = try entityProvider.fetchTracker(with: tracker.id)
+        
+        context.delete(trackerEntity)
+        try context.saveContextIfNeeded()
+        print("\n✅ [TrackerStore] deleteTracker: удалён трекер:\n\(tracker.title)")
+    }
+    
+    func fetchTrackerCategory(for tracker: Tracker) throws -> TrackerCategory {
+        let trackerEntity = try entityProvider.fetchTracker(with: tracker.id)
+        
+        guard let categoryEntity = trackerEntity.category else {
+            throw CoreDataMapper.CoreDataMapperError.categoryMappingFailed
+        }
+        
+        return try mapper.makeTrackerCategory(from: categoryEntity)
     }
 }

@@ -1,65 +1,71 @@
-import UIKit
 import CoreData
+import Foundation
 
 final class TrackerRecordStore {
     
     // MARK: - Types
     private enum TrackerRecordStoreError: Error {
-        case trackerNotFound
-        case trackerRecordNotFound
         case trackerRecordAlreadyExists
     }
     
     // MARK: - Dependencies
     private let context: NSManagedObjectContext
+    private let entityProvider: CoreDataEntityProvider
     
     // MARK: - Initialization
-    init(context: NSManagedObjectContext) {
+    init(
+        context: NSManagedObjectContext,
+        entityProvider: CoreDataEntityProvider? = nil
+    ) {
         self.context = context
+        self.entityProvider = entityProvider ?? CoreDataEntityProvider(context: context)
     }
+}
+
+// MARK: - TrackerRecordStoreProtocol
+extension TrackerRecordStore: TrackerRecordStoreProtocol {
     
-    // MARK: - Helpers
-    private func fetchTracker(with trackerID: UUID) throws -> TrackerCoreData {
-        let request = TrackerCoreData.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "%K == %@",
-            #keyPath(TrackerCoreData.trackerID),
-            trackerID as CVarArg
-        )
-        request.fetchLimit = 1
-        
-        guard let tracker = try context.fetch(request).first else {
-            throw TrackerRecordStoreError.trackerNotFound
+    func addTrackerRecord(_ trackerRecord: TrackerRecord) throws {
+        guard try !trackerRecordExists(
+            for: trackerRecord.trackerID,
+            on: trackerRecord.date
+        ) else {
+            throw TrackerRecordStoreError.trackerRecordAlreadyExists
         }
         
-        return tracker
-    }
-    
-    private func fetchTrackerRecord(
-        for tracker: TrackerCoreData,
-        on date: Date
-    ) throws -> TrackerRecordCoreData {
-        let request = TrackerRecordCoreData.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "%K == %@ AND %K == %@",
-            #keyPath(TrackerRecordCoreData.tracker),
-            tracker,
-            #keyPath(TrackerRecordCoreData.date),
-            date as NSDate
+        let trackerEntity = try entityProvider.fetchTracker(
+            with: trackerRecord.trackerID
         )
-        request.fetchLimit = 1
         
-        guard let trackerRecord = try context.fetch(request).first else {
-            throw TrackerRecordStoreError.trackerRecordNotFound
-        }
+        let trackerRecordEntity = TrackerRecordCoreData(context: context)
+        trackerRecordEntity.tracker = trackerEntity
+        trackerRecordEntity.date = trackerRecord.date
         
-        return trackerRecord
+        try context.saveContextIfNeeded()
+        print("\n✅ [TrackerRecordStore] addTrackerRecord: добавлена отметка выполнения")
     }
     
-    private func trackerRecordExists(
-        for tracker: TrackerCoreData,
+    func deleteTrackerRecord(_ trackerRecord: TrackerRecord) throws {
+        let trackerRecordEntity = try entityProvider.fetchTrackerRecord(
+            for: trackerRecord.trackerID,
+            on: trackerRecord.date
+        )
+        
+        context.delete(trackerRecordEntity)
+        try context.saveContextIfNeeded()
+        print("\n✅ [TrackerRecordStore] deleteTrackerRecord: удалена отметка выполнения")
+    }
+}
+
+// MARK: - Helpers
+private extension TrackerRecordStore {
+    
+    func trackerRecordExists(
+        for trackerID: UUID,
         on date: Date
     ) throws -> Bool {
+        let tracker = try entityProvider.fetchTracker(with: trackerID)
+        
         let request = TrackerRecordCoreData.fetchRequest()
         request.predicate = NSPredicate(
             format: "%K == %@ AND %K == %@",
@@ -73,36 +79,5 @@ final class TrackerRecordStore {
         let count = try context.count(for: request)
         
         return count > 0
-    }
-}
-
-// MARK: - TrackerRecordStoreProtocol
-extension TrackerRecordStore: TrackerRecordStoreProtocol {
-    
-    func addTrackerRecord(_ trackerRecord: TrackerRecord) throws {
-        let trackerEntity = try fetchTracker(with: trackerRecord.trackerID)
-        guard try !trackerRecordExists(
-            for: trackerEntity,
-            on: trackerRecord.date
-        ) else {
-            throw TrackerRecordStoreError.trackerRecordAlreadyExists
-        }
-        
-        let trackerRecordEntity = TrackerRecordCoreData(context: context)
-        trackerRecordEntity.tracker = trackerEntity
-        trackerRecordEntity.date = trackerRecord.date
-        
-        try context.saveContextIfNeeded()
-    }
-    
-    func deleteTrackerRecord(_ trackerRecord: TrackerRecord) throws {
-        let trackerEntity = try fetchTracker(with: trackerRecord.trackerID)
-        let trackerRecordEntity = try fetchTrackerRecord(
-            for: trackerEntity,
-            on: trackerRecord.date
-        )
-        
-        context.delete(trackerRecordEntity)
-        try context.saveContextIfNeeded()
     }
 }

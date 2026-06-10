@@ -12,7 +12,12 @@
         <attribute name="title" attributeType="String"/>
         <attribute name="trackerID" attributeType="UUID" usesScalarValueType="NO"/>
         <relationship name="category" maxCount="1" deletionRule="Nullify" destinationEntity="TrackerCategoryCoreData" inverseName="trackers" inverseEntity="TrackerCategoryCoreData"/>
+        <relationship name="pins" toMany="YES" deletionRule="Cascade" destinationEntity="TrackerPinCoreData" inverseName="tracker" inverseEntity="TrackerPinCoreData"/>
         <relationship name="records" toMany="YES" deletionRule="Cascade" destinationEntity="TrackerRecordCoreData" inverseName="tracker" inverseEntity="TrackerRecordCoreData"/>
+    </entity>
+    <entity name="TrackerPinCoreData" representedClassName="TrackerPinCoreData" syncable="YES" codeGenerationType="class">
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="tracker" maxCount="1" deletionRule="Nullify" destinationEntity="TrackerCoreData" inverseName="pins" inverseEntity="TrackerCoreData"/>
     </entity>
     <entity name="TrackerRecordCoreData" representedClassName="TrackerRecordCoreData" syncable="YES" codeGenerationType="class">
         <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
