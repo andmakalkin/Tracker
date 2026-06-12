@@ -2,15 +2,12 @@ import Foundation
 
 final class AddingCategoryModel {
     
-    // MARK: - Dependencies
-    private var dataProvider: TrackersDataProviderProtocol
-    private let storage: StorageProtocol
-    
     // MARK: - Binding
     var onDataDidUpdate: (() -> Void)?
     
-    // MARK: - Data
-    private(set) var categories = [TrackerCategory]()
+    // MARK: - Dependencies
+    private var dataProvider: TrackersDataProviderProtocol
+    private let storage: StorageProtocol
     
     // MARK: - Initialization
     init(
@@ -35,19 +32,13 @@ final class AddingCategoryModel {
             print("❌ [AddingCategoryModel] deleteCategory: не удалось удалить категорию: \(error)")
         }
     }
-    
-    // MARK: - Data Updates
-    private func loadCategoriesFromProvider() {
-        categories = dataProvider.categories
-        onDataDidUpdate?()
-    }
 }
 
 // MARK: - TrackersDataProviderDelegateProtocol
 extension AddingCategoryModel: TrackersDataProviderDelegateProtocol {
     
     func categoriesDidUpdate() {
-        loadCategoriesFromProvider()
+        onDataDidUpdate?()
     }
     
     func pinnedTrackersDidUpdate() { }

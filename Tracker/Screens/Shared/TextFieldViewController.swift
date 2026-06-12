@@ -154,6 +154,8 @@ final class TextFieldViewController: UIViewController {
     @objc private func textDidChange() {
         inputText = textField.text ?? ""
         warningLabelContainerView.isHidden = inputText.count <= maxCharacters
+        
+        delegate?.didChangeInputText(inputText)
     }
     
     // MARK: - Public Methods

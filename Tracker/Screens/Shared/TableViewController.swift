@@ -38,7 +38,7 @@ final class TableViewController: UIViewController {
     init(renderMode: RenderMode, titlesAndDescriptions: [(String, String?)]) {
         self.renderMode = renderMode
         self.titlesAndDescriptions = titlesAndDescriptions
-
+        
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -46,14 +46,14 @@ final class TableViewController: UIViewController {
         self.renderMode = renderMode
         self.titlesAndDescriptions = titles.map { ($0, nil) }
         self.switchStates = switchStates
-
+        
         super.init(nibName: nil, bundle: nil)
     }
     
     init(renderMode: RenderMode, titles: [String]) {
         self.renderMode = renderMode
         self.titlesAndDescriptions = titles.map { ($0, nil) }
-
+        
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -90,7 +90,7 @@ final class TableViewController: UIViewController {
         tableView.isScrollEnabled = false
         tableView.backgroundColor = .ypBackground
         tableView.separatorStyle = .none
-
+        
         view.addSubview(tableView)
         tableView.translatesAutoresizingMaskIntoConstraints = false
         
@@ -122,7 +122,7 @@ final class TableViewController: UIViewController {
         selectedIndexPath = index.map {
             IndexPath(row: $0, section: 0)
         }
-
+        
         tableView.reloadData()
     }
     
@@ -139,19 +139,16 @@ final class TableViewController: UIViewController {
             )
             
         case .addingScheduleViewController:
-            var switchState: Bool
-            if let switchStates {
-                switchState = switchStates[indexPath.row]
-            } else {
-                switchState = false
-            }
-            
+            let switchState = switchStates?.indices.contains(indexPath.row) == true
+                ? switchStates?[indexPath.row] ?? false
+                : false
+
             return TableViewControllerCell.Model(
                 title: item.0,
                 description: nil,
                 accessory: .switcher(isOn: switchState)
             )
-        
+            
         case .addingCategoryViewController:
             return TableViewControllerCell.Model(
                 title: item.0,
@@ -167,7 +164,7 @@ final class TableViewController: UIViewController {
             guard let self else { return }
             self.delegate?.didTapEdit(at: indexPath.row)
         }
-
+        
         let deleteAction = UIAction(title: "Удалить", attributes: .destructive) { [weak self] _ in
             guard let self else { return }
             self.delegate?.didTapDelete(at: indexPath.row)
@@ -187,7 +184,7 @@ final class TableViewController: UIViewController {
             parameters: parameters
         )
     }
-
+    
     // MARK: - Helpers
     private func updateTableViewHeight() {
         let newHeight = CGFloat(numberOfRows) * cellHeight
@@ -204,7 +201,7 @@ extension TableViewController: UITableViewDelegate {
     ) -> CGFloat {
         cellHeight
     }
-
+    
     func tableView(
         _ tableView: UITableView,
         didSelectRowAt indexPath: IndexPath
@@ -213,10 +210,10 @@ extension TableViewController: UITableViewDelegate {
         case .addingTrackerViewController:
             let title = titlesAndDescriptions[indexPath.row].0
             delegate?.didSelectRowAt(indexPath.row, title: title)
-        
+            
         case .addingScheduleViewController:
             return
-        
+            
         case .addingCategoryViewController:
             let oldSelectedIndexPath = selectedIndexPath
             selectedIndexPath = indexPath
@@ -332,7 +329,7 @@ extension TableViewController: TableViewControllerCellDelegateProtocol {
         }
         
         switchStates?[indexPath.row] = newValue
-
+        
         delegate?.didChangeSwitcherValueAt(
             row: indexPath.row,
             newValue: newValue

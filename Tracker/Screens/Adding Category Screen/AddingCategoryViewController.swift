@@ -52,9 +52,9 @@ final class AddingCategoryViewController: UIViewController {
         
         tableViewController.delegate = self
         
+        setupView()
         bind()
         viewModel.loadData()
-        setupView()
     }
     
     // MARK: - UI Setup

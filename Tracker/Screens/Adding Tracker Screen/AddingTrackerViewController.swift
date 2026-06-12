@@ -106,6 +106,8 @@ final class AddingTrackerViewController: UIViewController {
     
     private var inputText: String = "" {
         didSet {
+            guard inputText != oldValue else { return }
+            
             isTrackerReadyForSaving = checkTrackerIsReadyForSaving()
         }
     }
@@ -667,6 +669,10 @@ extension AddingTrackerViewController: AddingScheduleViewControllerDelegateProto
 
 // MARK: - TextFieldViewControllerDelegateProtocol
 extension AddingTrackerViewController: TextFieldViewControllerDelegateProtocol {
+    func didChangeInputText(_ text: String) {
+        inputText = text
+    }
+    
     
     func didFinishInputEditing(_ text: String) {
         inputText = text

@@ -13,6 +13,7 @@ final class AddingCategoryViewModel {
     private let model: AddingCategoryModel
     
     // MARK: - State
+    private var categories: [TrackerCategory] = []
     private var selectedCategory: TrackerCategory?
     
     // MARK: - Initialization
@@ -30,7 +31,7 @@ final class AddingCategoryViewModel {
     
     // MARK: - Public Methods
     func loadData() {
-        let categories = model.fetchCategories()
+        categories = model.fetchCategories()
         
         let selectedIndex = categories.firstIndex {
             $0.categoryID == selectedCategory?.categoryID
@@ -42,27 +43,13 @@ final class AddingCategoryViewModel {
     }
     
     func category(at index: Int) -> TrackerCategory? {
-        let categories = model.fetchCategories()
-        
         guard categories.indices.contains(index) else {
             return nil
         }
-        
+
         return categories[index]
     }
-    
-    func didTapDeleteCategory(at index: Int) {
-        guard let category = category(at: index) else {
-            return
-        }
-        
-        if selectedCategory?.categoryID == category.categoryID {
-            selectedCategory = nil
-        }
-        
-        model.deleteCategory(category)
-    }
-    
+
     func didSelectCategory(at index: Int) -> TrackerCategory? {
         guard let category = category(at: index) else {
             return nil

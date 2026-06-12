@@ -44,6 +44,8 @@ final class NewCategoryViewController: UIViewController {
     
     private var inputText: String {
         didSet {
+            guard inputText != oldValue else { return }
+            
             isCategoryReadyForSaving = checkCategoryIsReadyForSaving()
         }
     }
@@ -272,6 +274,10 @@ final class NewCategoryViewController: UIViewController {
 
 // MARK: - TextFieldViewControllerDelegateProtocol
 extension NewCategoryViewController: TextFieldViewControllerDelegateProtocol {
+    func didChangeInputText(_ text: String) {
+        inputText = text
+    }
+    
     
     func didFinishInputEditing(_ text: String) {
         inputText = text
